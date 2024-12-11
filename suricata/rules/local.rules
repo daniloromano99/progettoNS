@@ -1,0 +1,8 @@
+# SQL Injection detection
+alert http any any -> any any (msg:"SQL Injection Attempt"; content:"' OR 1=1"; nocase; sid:100001; rev:1;)
+
+# Port scanning detection
+alert tcp any any -> any any (msg:"Port Scan Detected"; flags:S; threshold:type both, track by_src, count 20, seconds 10; sid:100002; rev:1;)
+
+# DoS detection (many connections to the same port)
+alert ip any any -> any any (msg:"Possible DoS Attack"; flow:established; threshold: type both, track by_dst, count 50, seconds 5; sid:100003; rev:1;)

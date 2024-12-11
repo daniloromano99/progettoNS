@@ -1,0 +1,109 @@
+%YAML 1.1
+---
+
+vars:
+  address-groups:
+    HOME_NET: "[192.168.0.0/16]"
+  port-groups:
+    HTTP_PORTS: "80"
+
+# Percorso delle regole personalizzate
+rule-files:
+  - /etc/suricata/rules/local.rules
+
+# Impostazioni di base per le regole
+default-rule-path: /etc/suricata/rules
+
+# Output dei log
+outputs:
+  - fast:
+      enabled: yes
+      filename: /var/log/suricata/fast.log
+
+  # Configurazione del log JSON per eve.json
+  - eve-log:
+      enabled: yes
+      filetype: regular
+      filename: /var/log/suricata/eve.json
+      types:
+        - alert        # Rileva e registra gli alert
+        - dns          # Rileva e registra le richieste DNS
+        - http         # Rileva e registra gli eventi HTTP
+        - tls          # Rileva e registra le informazioni TLS
+        - ssh          # Rileva e registra informazioni sugli accessi SSH
+        - flow         # Rileva e registra informazioni sul flusso di rete
+        - fileinfo     # Rileva e registra informazioni sui file
+        - netflow      # Rileva e registra flussi di rete (opzionale)
+        - dns-query    # Rileva e registra query DNS
+  - elasticsearch:
+      enabled: yes
+      hosts:
+        - http://elasticsearch:9200  # O l'host del tuo cluster Elasticsearch
+      index: suricata-%Y.%m.%d
+
+# Configurazioni statistiche
+stats:
+  enabled: yes
+  filetype: json  # Genera statistiche in formato JSON
+  filename: /var/log/suricata/stats.json
+
+# Configurazione dell'interfaccia di rete per il monitoraggio del traffico
+af-packet:
+  - interface: eth0   # Specifica l'interfaccia di rete da monitorare (modifica se necessario)
+    threads: 1
+    cluster-type: cluster_flow
+    cluster-id: 99
+    defrag: yes
+    checksum-checks: yes
+    ring-size: 100000
+
+# Variabili di rete e regole personalizzate
+home-net: "[192.168.0.0/16]"
+externals: "[1.2.3.4/32]"
+
+# Configurazione avanzata delle prestazioni
+cpu-affinity:
+  mode: default
+  threads:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+
+# Cattura dei flussi di rete
+flow:
+  memcap: 64mb
+  hash-size: 1024
+  prealloc: yes
+  timeout:
+    syn: 60 seconds
+    fin: 60 seconds
+    rst: 60 seconds
+    icmp: 60 seconds
+
+# Impostazioni per il traffico HTTP e DNS
+http:
+  enabled: yes
+  max-payload-size: 1000000
+  max-header-size: 4096
+  max-url-length: 2048
+
+dns:
+  enabled: yes
+  max-payload-size: 512
+
+# Rilevamento e gestione degli alert
+detection:
+  profile: medium
+  rules:
+    - /etc/suricata/rules/suricata.rules
+
+# Impostazioni per il file-store (salvataggio file)
+file-store:
+  enabled: yes
+  force-mmap: yes
+  directory: /var/log/suricata/files

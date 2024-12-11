@@ -1,0 +1,109 @@
+services:
+  webserver:
+    build:
+      context: ./webserver
+    ports:
+      - "8080:80"
+    networks:
+      - internal
+
+  database:
+    build:
+      context: ./database
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: testdb
+    networks:
+      - internal
+
+  client:
+    build:
+      context: ./client
+    networks:
+      - internal
+
+  suricata:
+    build:
+      context: ./suricata
+    cap_add:
+      - NET_ADMIN       # Permessi per la gestione delle interfacce di rete
+      - NET_RAW         # Permessi per operazioni con pacchetti raw (utile per IDS)
+    networks:
+      - internal
+    volumes:
+      - ./suricata/rules:/etc/suricata/rules:ro         # Regole di Suricata in sola lettura
+      - ./suricata/suricata.yaml:/etc/suricata/suricata.yaml  # Configurazione personalizzata di Suricata
+      - ./suricata/logs:/var/log/suricata  # Cartella dei log di Suricata
+    environment:
+      - SURICATA_LOG_DIR=/var/log/suricata  # Specifica la directory dei log come variabile d'ambiente
+    restart: always  # Riavvia automaticamente in caso di errore
+    logging:
+      driver: "json-file"  # Log di Docker in formato JSON
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.2
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - network.host=0.0.0.0
+      - cluster.name=docker-cluster
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+    networks:
+      - internal
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+      - ./visualization/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://elasticsearch:9200"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 5s
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.10.2
+    container_name: kibana
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      SERVER_NAME: kibana
+    depends_on:
+      - elasticsearch
+    ports:
+      - "5601:5601"
+    networks:
+      - internal
+    volumes:
+      - ./visualization/kibana.yml:/usr/share/kibana/config/kibana.yml
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.10.2
+    container_name: filebeat
+    command: filebeat -e -strict.perms=false
+    user: root
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml  # Configurazione di Filebeat
+      - ./suricata/logs:/var/log/suricata  # Monta la cartella dei log di Suricata
+      - /var/lib/docker/containers:/host/containers  # Accesso ai log dei container Docker (opzionale)
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - KIBANA_HOST=http://kibana:5601
+    networks:
+      - internal
+    depends_on:
+      - elasticsearch
+      - kibana
+    restart: always  # Riavvia automaticamente in caso di errore
+    logging:
+      driver: "json-file"  # Log di Docker in formato JSON
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  es_data:
+    driver: local

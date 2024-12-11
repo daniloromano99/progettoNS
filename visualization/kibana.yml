@@ -1,0 +1,7 @@
+# Nome del server Kibana
+server.name: kibana
+
+# Configurazione dell'host Elasticsearch
+elasticsearch.hosts: ["http://elasticsearch:9200"]
+
+server.host: "0.0.0.0"  # Può essere utile se stai tentando di accedere a Kibana da un altro host.
